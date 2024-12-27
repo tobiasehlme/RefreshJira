@@ -64,38 +64,53 @@ namespace RefreshJira
             {
                 Console.Clear();
                 await page.ReloadAsync();
-                Console.WriteLine($"Page refreshed at {DateTime.Now}. \n");
-
-                await page.WaitForSelectorAsync(".issue-link");
-
-                var createdCount = await page.EvaluateFunctionAsync<int>(@"
-                    () => document.querySelectorAll('.created').length
-                ");
-
-                var issueTexts = await page.EvaluateFunctionAsync<List<string>>(@"
-                    () => Array.from(document.querySelectorAll('.issue-link')).map(element => element.textContent.trim())
-                ");
-
-                foreach (var issueText in issueTexts)
+                Console.WriteLine($"Page refreshed at {DateTime.Now}.");
+                Console.WriteLine("Fetching tickets... \n");
+                try
                 {
-                    if (!issueText.StartsWith("SR"))
+                    var waitForLink = await page.WaitForSelectorAsync(".issue-link");
+
+                    if (waitForLink != null)
                     {
-                        Console.WriteLine($"{issueText} \n");
-                    }
-                    else
-                    {
-                        Console.WriteLine($"\x1b]8;;{url}/{issueText}\x1b\\Ctrl + Click me to open! \x1b]8;;\x1b\\");
+                        var createdCount = await page.EvaluateFunctionAsync<int>(@"
+                            () => document.querySelectorAll('.created').length
+                        ");
+
+                        var issueTexts = await page.EvaluateFunctionAsync<List<string>>(@"
+                            () => Array.from(document.querySelectorAll('.issue-link')).map(element => element.textContent.trim())
+                        ");
+
+                        if (createdCount != 0)
+                        {
+                            foreach (var issueText in issueTexts)
+                            {
+                                if (!issueText.StartsWith("SR"))
+                                {
+                                    Console.WriteLine($"{issueText} \n");
+                                }
+                                else
+                                {
+                                    Console.WriteLine($"\x1b]8;;{url}/{issueText}\x1b\\Ctrl + Click me to open! \x1b]8;;\x1b\\");
+                                }
+                            }
+                        }
+                        if (createdCount >= 10)
+                        {
+                            Console.WriteLine("Displaying the 10 newest unhandled tickets.");
+                        }
+                        Console.WriteLine($"Total unhandled tickets - {createdCount}");
+                        await Task.Delay(60000); // Refresh every 1 minute
                     }
                 }
-
-                if (createdCount >= 10)
+                catch (PuppeteerSharp.WaitTaskTimeoutException ex)
                 {
-                    Console.WriteLine("Displaying the 10 newest unhandled tickets.");
+                    for (int i = 10; i >= 0; i--)
+                    {
+                        Console.WriteLine($"Can't find any tickets at the moment, retrying in {i}s...");
+                        await Task.Delay(1000);
+                    }
                 }
-                Console.WriteLine($"Total unhandled tickets - {createdCount}");
-                await Task.Delay(60000); // Refresh every 1 minute
             }
         }
-
     }
 }
