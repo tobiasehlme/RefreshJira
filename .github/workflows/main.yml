@@ -1,0 +1,46 @@
+name: Release on Merge to Main
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '.github/workflows/**' # optional, ensures this workflow doesn't trigger on non-code changes
+
+jobs:
+  build-and-release:
+    name: Build and Create Release
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0' # Update to the version you need
+
+    - name: Publish Application
+      run: |
+        dotnet publish -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o output
+
+    - name: Create GitHub Release
+      id: create_release
+      uses: actions/create-release@v1
+      with:
+        tag_name: ${{ github.run_number }}
+        release_name: "Release ${{ github.run_number }}"
+        body: |
+          Automated release of .exe from the merged PR
+        draft: false
+        prerelease: false
+        token: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: Upload .exe to Release
+      uses: actions/upload-release-asset@v1
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./output/RefreshJira.exe
+        asset_name: RefreshJira.exe
+        asset_content_type: application/octet-stream
